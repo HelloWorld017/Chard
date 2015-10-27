@@ -1,5 +1,6 @@
-package org.khinenw.chard.network;
+package org.khinenw.chard.network.packet;
 
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 
 public abstract class Packet{
@@ -7,7 +8,9 @@ public abstract class Packet{
 	public ByteBuffer payload;
 	protected int offset = 0;
 	
-	public abstract String getName();
+	public SocketAddress source;
+	
+	public abstract int getID();
 	
 	public byte[] readRaw(int len){
 		ByteBuffer bb = ByteBuffer.wrap(buffer);
@@ -34,18 +37,11 @@ public abstract class Packet{
 	}
 	
 	public short readShort(){
-		boolean isSigned = readBoolean();
-		byte[] bytes = readRaw(2);
-		if(!isSigned){
-			return (short) (((bytes[0] << 8) & 0x0000ff00) | (bytes[1] & 0x000000ff));
-		}
 		return ByteBuffer.wrap(readRaw(2)).getShort();
 	}
 	
-	public void writeShort(short s, boolean isSigned){
-		if(isSigned){
-			
-		}
+	public void writeShort(short s){
+		payload.put(ByteBuffer.allocate(2).putShort(s));
 	}
 	
 	public int readInt(){
@@ -53,16 +49,28 @@ public abstract class Packet{
 	}
 	
 	public void writeInt(int i){
-		
+		payload.put(ByteBuffer.allocate(4).putInt(i));
+	}
+	
+	public long readLong(){
+		return ByteBuffer.wrap(readRaw(8)).getLong();
+	}
+	
+	public void writeLong(long l){
+		payload.put(ByteBuffer.allocate(8).putLong(l));
 	}
 	
 	public boolean readBoolean(){
-		if(readByte() == 0) return true;
-		return false;
+		if(readByte() == 0) return false;
+		return true;
 	}
 	
-	public void writeBoolean(){
-		
+	public void writeBoolean(boolean b){
+		if(b){
+			writeByte((byte) 0x01);
+		}else{
+			writeByte((byte) 0x00);
+		}
 	}
 	
 	public String readString(){
@@ -70,20 +78,16 @@ public abstract class Packet{
 	}
 	
 	public void writeString(String s){
-		writeShort((short) s.getBytes().length, false);
+		writeShort((short) s.getBytes().length);
         writeRaw(s.getBytes());
 	}
 	
-	public abstract void _encode();
-	public abstract void _decode();
-	
 	public void encode(){
 		payload = ByteBuffer.allocate(64 * 64 * 64);
-		_encode();
+		writeInt(this.getID());
 	}
 	
 	public void decode(){
-		readString();
-		_decode();
+		readInt();
 	}
 }

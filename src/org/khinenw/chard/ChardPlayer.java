@@ -1,5 +1,10 @@
 package org.khinenw.chard;
 
-public class ChardPlayer {
+import java.security.PrivateKey;
 
+public class ChardPlayer {
+	
+	public ChardPlayer(PrivateKey key){
+		
+	}
 }
