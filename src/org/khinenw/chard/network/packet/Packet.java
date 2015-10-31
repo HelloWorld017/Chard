@@ -1,18 +1,13 @@
 package org.khinenw.chard.network.packet;
 
-import java.net.InetAddress;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 import org.khinenw.chard.ChardServer;
 
 public abstract class Packet implements Cloneable{
 	public byte[] buffer;
-	private ByteBuffer payload;
+	public ByteBuffer payload;
 	protected int offset = 0;
-	
-	public InetAddress sourceAddress;
-	public int sourcePort;
 	
 	public abstract int getID();
 	
@@ -90,7 +85,6 @@ public abstract class Packet implements Cloneable{
 		payload = ByteBuffer.allocate(64 * 64 * 64);
 		writeInt(this.getID());
 		_encode();
-		buffer = Arrays.copyOf(payload.array(), payload.position());
 	}
 	
 	public void decode(){

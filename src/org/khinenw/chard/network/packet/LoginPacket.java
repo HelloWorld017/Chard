@@ -1,6 +1,6 @@
 package org.khinenw.chard.network.packet;
 
-public class LoginPacket extends SplitablePacket{
+public class LoginPacket extends Packet{
 
 	public String name;
 	public String pw;

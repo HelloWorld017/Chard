@@ -1,10 +1,8 @@
 package org.khinenw.chard.network;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -20,11 +18,11 @@ public class Network {
 	private Map<Integer, Class<? extends Packet>> registeredPacket = new HashMap<>();
 	private Map<String, Integer> ipSec = new TreeMap<>();
 	private Map<String, Integer> blockList = new TreeMap<>();
-	private Map<String, Session> sessions = new HashMap<>();
+	public Map<String, Session> sessions = new HashMap<>();
 	private ChardServer server;
-	private DatagramSocket socket;
+	private ServerSocketChannel serverSocket;
 	private NetworkTickThread tickThread;
-	private PacketReceiveThread receiveThread;
+	private ConnectionOpenThread openThread;
 	
 	public static final int MAX_BLOCK_COUNT = 1000;
 	public static final int BLOCK_TIME = 600;
@@ -34,20 +32,26 @@ public class Network {
 		this.server = server;
 		registerDefaultPackets();
 		try{
-			socket = new DatagramSocket(port);
+			serverSocket = ServerSocketChannel.open();
+			serverSocket.socket().bind(new InetSocketAddress(port));
 		}catch(Exception e){
 			server.log(e, LogLevel.EMERGENCY);
 		}
+		
 		tickThread = new NetworkTickThread();
-		receiveThread = new PacketReceiveThread(socket);
+		openThread = new ConnectionOpenThread(serverSocket);
 		
 		tickThread.start();
-		receiveThread.start();
+		openThread.start();
 	}
 	
 	public void registerDefaultPackets(){
 		registerPacket(PacketInfo.PING.ID, PingPacket.class);
 		registerPacket(PacketInfo.PONG.ID, PongPacket.class);
+	}
+	
+	public void createSession(SocketChannel socket){
+		sessions.put(socket.socket().getInetAddress() + ":" + socket.socket().getPort(), new Session(socket));
 	}
 	
 	public void tick(){
@@ -59,87 +63,35 @@ public class Network {
 			}
 		});
 
-		ipSec.forEach((k, v) -> {
-			if(v >= MAX_BLOCK_COUNT){
-				blockList.put(k, BLOCK_TIME);
-				server.log("Blocked " + k + " for " + BLOCK_TIME + "seconds.", LogLevel.INFO);
-			}
-		});
-		
 		ipSec.clear();
 	}
 	
-	public void receivePacket(DatagramPacket datagramPacket){
-		String host = datagramPacket.getAddress().getCanonicalHostName();
-		server.log("PACKET RECEIVED FROM " + host, LogLevel.DEBUG);
+	public boolean isBlock(String host){
 		if(blockList.containsKey(host)){
 			server.log("BLOCKED PACKET FROM " + host, LogLevel.DEBUG);
-			return;
+			return true;
 		}
 		
 		if(ipSec.containsKey(host)){
-			ipSec.replace(host, ipSec.get(host) + 1);
+			int receiveCount = ipSec.get(host);
+			
+			if(receiveCount >= MAX_BLOCK_COUNT){
+				blockList.put(host, BLOCK_TIME);
+				server.log("Blocked " + host + " for " + BLOCK_TIME + "seconds.", LogLevel.INFO);
+				return true;
+			}
+			
+			ipSec.replace(host, receiveCount + 1);
+			
 		}else{
 			ipSec.put(host, 1);
 		}
-		Packet pk = this.getPacket(datagramPacket.getData()[0]);
-		if(pk == null){
-			server.log("UNKNOWN PACKET FROM " + host, LogLevel.DEBUG);
-			return;
-		}
 		
-		pk.sourceAddress = datagramPacket.getAddress();
-		pk.sourcePort = datagramPacket.getPort();
-		pk.buffer = datagramPacket.getData();
-		try{
-			pk.decode();
-		}catch(Exception e){
-			server.log(e, LogLevel.DEBUG);
-			return;
-		}
-		
-		String source = host + ":" + datagramPacket.getPort();
-		
-		if(pk instanceof PingPacket){
-			PongPacket reply = new PongPacket();
-			reply.sendTime = System.currentTimeMillis();
-			reply.pingId = ((PingPacket) pk).pingId;
-			reply.encode();
-			
-			sendPacket(reply, pk.sourceAddress, pk.sourcePort);
-			server.log("SENT PONG TO " + source, LogLevel.DEBUG);
-			return;
-		}
-		
-		if(!sessions.containsKey(source)){
-			server.log("CREATING NEW SESSION", LogLevel.DEBUG);
-			sessions.put(source, new Session(datagramPacket.getAddress(), datagramPacket.getPort()));
-		}
-		sessions.get(source).handlePacket(pk);
+		return false;
 	}
 	
 	public void registerPacket(int id, Class<? extends Packet> pk){
 		registeredPacket.put(id, pk);
-	}
-	
-	public boolean sendPacket(DatagramPacket pk){
-		try{
-			socket.send(pk);
-			return true;
-		}catch(IOException e){
-			server.log(e, LogLevel.WARNING);
-			return false;
-		}
-	}
-	
-	public boolean sendPacket(Packet pk, InetAddress addr, int port){
-		DatagramPacket datagramPk = new DatagramPacket(pk.buffer, pk.buffer.length, addr, port);
-		return sendPacket(datagramPk);
-	}
-	
-	public boolean sendPacket(Packet pk, SocketAddress addr){
-		DatagramPacket datagramPk = new DatagramPacket(pk.buffer, pk.buffer.length, addr);
-		return sendPacket(datagramPk);
 	}
 	
 	public Packet getPacket(int id){
@@ -157,6 +109,6 @@ public class Network {
 	
 	public void close(){
 		this.tickThread.setCancelled();
-		this.receiveThread.setCancelled();
+		this.openThread.setCancelled();
 	}
 }
