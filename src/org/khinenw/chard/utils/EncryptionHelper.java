@@ -15,79 +15,84 @@ import java.util.Arrays;
 
 import javax.crypto.Cipher;
 
-public class EncryptionHelper {
-	public static EncryptionData encryptRSA(String plain) throws Exception{
+public class EncryptionHelper{
+	public static KeyPair generateKey() throws Exception{
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
 		generator.initialize(2048);
-		  
+
 		KeyPair keyPair = generator.genKeyPair();
-		
-		Key publicKey = keyPair.getPublic();
-		Key privateKey = keyPair.getPrivate();
-		
+
+		return keyPair;
+	}
+
+	public static String encrypt(String plain, PublicKey publicKey) throws Exception{
 		Cipher cipher = Cipher.getInstance("RSA");
 		cipher.init(Cipher.ENCRYPT_MODE, publicKey);
-		String cipherText = toHex(cipher.doFinal(plain.getBytes()));
-		
-		return new EncryptionData(publicKey, privateKey, cipherText);
+
+		return toHex(cipher.doFinal(plain.getBytes()));
 	}
-	
+
 	public static String decrypt(String cipherText, Key privateKey) throws Exception{
 		Cipher cipher = Cipher.getInstance("RSA");
 		cipher.init(Cipher.DECRYPT_MODE, privateKey);
+
 		return new String(cipher.doFinal(fromHex(cipherText)));
 	}
-	
+
 	public static String hash(String plain) throws Exception{
-        MessageDigest sha512 = MessageDigest.getInstance("SHA-512");
-        sha512.update(plain.getBytes());
-        
-        StringBuilder builder = new StringBuilder();
-        for (byte b : sha512.digest()) builder.append(Integer.toHexString(0xff & b));
-        
-        return builder.toString();
-	}
-	
-	public static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException {
-	    byte[] clear = fromHex(key64);
-	    PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);
-	    KeyFactory fact = KeyFactory.getInstance("DSA");
-	    PrivateKey priv = fact.generatePrivate(keySpec);
-	    Arrays.fill(clear, (byte) 0);
-	    return priv;
+		MessageDigest sha512 = MessageDigest.getInstance("SHA-512");
+		sha512.update(plain.getBytes());
+
+		StringBuilder builder = new StringBuilder();
+		for(byte b : sha512.digest())
+			builder.append(Integer.toHexString(0xff & b));
+
+		return builder.toString();
 	}
 
+	public static PrivateKey loadPrivateKey(String key64) throws GeneralSecurityException{
+		byte[] clear = fromHex(key64);
+		PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(clear);
 
-	public static PublicKey loadPublicKey(String stored) throws GeneralSecurityException {
-	    byte[] data = fromHex(stored);
-	    X509EncodedKeySpec spec = new X509EncodedKeySpec(data);
-	    KeyFactory fact = KeyFactory.getInstance("DSA");
-	    return fact.generatePublic(spec);
+		KeyFactory fact = KeyFactory.getInstance("DSA");
+		PrivateKey privateKey = fact.generatePrivate(spec);
+
+		// clear clear
+		Arrays.fill(clear, (byte) 0);
+		return privateKey;
 	}
 
-	public static String savePrivateKey(PrivateKey priv) throws GeneralSecurityException {
-	    KeyFactory fact = KeyFactory.getInstance("DSA");
-	    PKCS8EncodedKeySpec spec = fact.getKeySpec(priv,
-	            PKCS8EncodedKeySpec.class);
-	    byte[] packed = spec.getEncoded();
-	    String key64 = toHex(packed);
+	public static PublicKey loadPublicKey(String stored) throws GeneralSecurityException{
+		byte[] data = fromHex(stored);
+		X509EncodedKeySpec spec = new X509EncodedKeySpec(data);
 
-	    Arrays.fill(packed, (byte) 0);
-	    return key64;
+		KeyFactory fact = KeyFactory.getInstance("DSA");
+		return fact.generatePublic(spec);
 	}
 
+	public static String savePrivateKey(PrivateKey priv) throws GeneralSecurityException{
+		KeyFactory fact = KeyFactory.getInstance("DSA");
+		PKCS8EncodedKeySpec spec = fact.getKeySpec(priv, PKCS8EncodedKeySpec.class);
+		
+		byte[] packed = spec.getEncoded();
+		String hexKey = toHex(packed);
 
-	public static String savePublicKey(PublicKey publ) throws GeneralSecurityException {
-	    KeyFactory fact = KeyFactory.getInstance("DSA");
-	    X509EncodedKeySpec spec = fact.getKeySpec(publ,
-	            X509EncodedKeySpec.class);
-	    return toHex(spec.getEncoded());
+		//clear packed
+		Arrays.fill(packed, (byte) 0);
+		return hexKey;
 	}
-	
+
+	public static String savePublicKey(PublicKey publ) throws GeneralSecurityException{
+		KeyFactory fact = KeyFactory.getInstance("DSA");
+		X509EncodedKeySpec spec = fact.getKeySpec(publ, X509EncodedKeySpec.class);
+		
+		return toHex(spec.getEncoded());
+	}
+
 	public static String toHex(byte[] b){
 		return new BigInteger(b).toString(16);
 	}
-	
+
 	public static byte[] fromHex(String string){
 		return new BigInteger(string, 16).toByteArray();
 	}

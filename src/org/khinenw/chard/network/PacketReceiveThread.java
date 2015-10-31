@@ -22,13 +22,13 @@ public class PacketReceiveThread extends Thread{
 		setCancelled(true);
 	}
 	
-	public void onRun(){
+	public void run(){
 		while(!isCancelled){
 			try{
 				byte[] buffer = new byte[65535];
 				DatagramPacket pk = new DatagramPacket(buffer, buffer.length);
 				socket.receive(pk);
-				ChardServer.getInstance().getNetwork().receivePacket(pk);
+				ChardServer.getNetwork().receivePacket(pk);
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.CRITICAL);
 			}

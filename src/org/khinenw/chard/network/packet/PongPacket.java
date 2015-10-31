@@ -7,19 +7,17 @@ public class PongPacket extends Packet{
 	
 	@Override
 	public int getID() {
-		return PacketInfo.PONG.getID();
+		return PacketInfo.PONG.ID;
 	}
 	
 	@Override
-	public void encode() {
-		super.encode();
-		
-		pingId = readShort();
-		sendTime = readLong();
+	public void _encode() {
+		writeShort(pingId);
+		writeLong(sendTime);
 	}
 
 	@Override
-	public void decode() {
+	public void _decode() {
 		throw new UnsupportedOperationException();
 	}
 }

@@ -1,14 +1,18 @@
 package org.khinenw.chard.network.packet;
 
-import java.net.SocketAddress;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
-public abstract class Packet{
+import org.khinenw.chard.ChardServer;
+
+public abstract class Packet implements Cloneable{
 	public byte[] buffer;
-	public ByteBuffer payload;
+	private ByteBuffer payload;
 	protected int offset = 0;
 	
-	public SocketAddress source;
+	public InetAddress sourceAddress;
+	public int sourcePort;
 	
 	public abstract int getID();
 	
@@ -85,9 +89,24 @@ public abstract class Packet{
 	public void encode(){
 		payload = ByteBuffer.allocate(64 * 64 * 64);
 		writeInt(this.getID());
+		_encode();
+		buffer = Arrays.copyOf(payload.array(), payload.position());
 	}
 	
 	public void decode(){
 		readInt();
+		_decode();
+	}
+	
+	public abstract void _encode();
+	public abstract void _decode();
+	
+	public Packet clone(){
+		Packet newPk = ChardServer.getNetwork().getPacket(this.getID());
+		this.encode();
+		newPk.buffer = this.payload.array();
+		newPk.decode();
+		return newPk;
+		
 	}
 }

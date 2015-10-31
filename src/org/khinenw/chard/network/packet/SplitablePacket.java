@@ -1,6 +1,6 @@
 package org.khinenw.chard.network.packet;
 
-public abstract class EncapsulatedPacket extends Packet{
+public abstract class SplitablePacket extends Packet{
 	public boolean hasSplit = false;
 	public short splitCount = 0;
 	public short splitIndex = 0;

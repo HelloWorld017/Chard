@@ -7,18 +7,16 @@ public class PingPacket extends Packet{
 	
 	@Override
 	public int getID() {
-		return PacketInfo.PING.getID();
+		return PacketInfo.PING.ID;
 	}
 
 	@Override
-	public void encode() {
+	public void _encode() {
 		throw new UnsupportedOperationException();
 	}
 
 	@Override
-	public void decode() {
-		super.decode();
-		
+	public void _decode() {
 		pingId = readShort();
 		sendTime = readLong();
 	}

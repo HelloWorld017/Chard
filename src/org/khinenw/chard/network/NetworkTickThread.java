@@ -14,10 +14,10 @@ public class NetworkTickThread extends Thread{
 		setCancelled(true);
 	}
 	
-	public void onRun(){
+	public void run(){
 		while(!isCancelled){
 			try{
-				ChardServer.getInstance().getNetwork().tick();
+				ChardServer.getNetwork().tick();
 				Thread.sleep(1000);
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.CRITICAL);
