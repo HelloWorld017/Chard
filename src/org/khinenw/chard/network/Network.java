@@ -19,10 +19,14 @@ public class Network {
 	private Map<String, Integer> ipSec = new TreeMap<>();
 	private Map<String, Integer> blockList = new TreeMap<>();
 	public Map<String, Session> sessions = new HashMap<>();
+	
 	private ChardServer server;
+	
 	private ServerSocketChannel serverSocket;
+	
 	private NetworkTickThread tickThread;
 	private ConnectionOpenThread openThread;
+	private ReceiveThread recvThread;
 	
 	public static final int MAX_BLOCK_COUNT = 1000;
 	public static final int BLOCK_TIME = 600;
@@ -40,9 +44,11 @@ public class Network {
 		
 		tickThread = new NetworkTickThread();
 		openThread = new ConnectionOpenThread(serverSocket);
+		recvThread = new ReceiveThread();
 		
 		tickThread.start();
 		openThread.start();
+		recvThread.start();
 	}
 	
 	public void registerDefaultPackets(){
@@ -51,7 +57,13 @@ public class Network {
 	}
 	
 	public void createSession(SocketChannel socket){
+		System.out.println("OPEN SESSION REQUEST FROM " + socket.socket().getInetAddress().getCanonicalHostName());
 		sessions.put(socket.socket().getInetAddress() + ":" + socket.socket().getPort(), new Session(socket));
+	}
+	
+	public void closeSession(String sessionKey){
+		sessions.get(sessionKey).close();
+		sessions.remove(sessionKey);
 	}
 	
 	public void tick(){
@@ -108,7 +120,8 @@ public class Network {
 	}
 	
 	public void close(){
-		this.tickThread.setCancelled();
-		this.openThread.setCancelled();
+		tickThread.setCancelled();
+		openThread.setCancelled();
+		recvThread.setCancelled();
 	}
 }

@@ -2,7 +2,7 @@ package org.khinenw.chard.event;
 
 import org.khinenw.chard.network.packet.Packet;
 
-public class PacketIncomeEvent extends Event{
+public class PacketIncomeEvent extends CancellableEvent{
 	private Packet pk;
 	
 	public PacketIncomeEvent(Packet pk){

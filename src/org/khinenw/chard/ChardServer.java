@@ -1,6 +1,7 @@
 package org.khinenw.chard;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.khinenw.chard.event.Event;
@@ -13,17 +14,28 @@ import org.khinenw.chard.utils.Logger.LogLevel;
 public class ChardServer {
 	private List<Listener> handlerList = new ArrayList<>();
 	private Configuration serverConfiguration;
+	private HashMap<String, ChardPlayer> onlinePlayers;
+	
 	private static ChardServer instance;
 	private static Network network;
 	
 	public ChardServer(){
 		instance = this;
 		serverConfiguration = new Configuration("server.conf", "default.conf");
+		onlinePlayers = new HashMap<>();
 		try{
 			network = new Network(this, serverConfiguration.getInt("port"));
 		}catch(Exception e){
 			this.log(e, LogLevel.CRITICAL);
 		}
+	}
+	
+	public void registerOnlinePlayer(ChardPlayer player){
+		this.onlinePlayers.put(player.getName(), player);
+	}
+	
+	public ChardPlayer getPlayerById(String id){
+		return onlinePlayers.get(id);
 	}
 	
 	public void log(Throwable t, Logger.LogLevel level){

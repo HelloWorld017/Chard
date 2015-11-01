@@ -1,8 +1,11 @@
 package org.khinenw.chard.network.packet;
 
 import java.nio.ByteBuffer;
+import java.security.PublicKey;
 
 import org.khinenw.chard.ChardServer;
+import org.khinenw.chard.utils.EncryptionHelper;
+import org.khinenw.chard.utils.Logger.LogLevel;
 
 public abstract class Packet implements Cloneable{
 	public byte[] buffer;
@@ -79,6 +82,23 @@ public abstract class Packet implements Cloneable{
 	public void writeString(String s){
 		writeShort((short) s.getBytes().length);
         writeRaw(s.getBytes());
+	}
+	
+	public void writePublicKey(PublicKey key){
+		try{
+			writeString(EncryptionHelper.savePublicKey(key));
+		}catch(Exception e){
+			ChardServer.getInstance().log(e, LogLevel.WARNING);
+		}
+	}
+	
+	public PublicKey readPublicKey(){
+		try{
+			return EncryptionHelper.loadPublicKey(readString());
+		}catch(Exception e){
+			ChardServer.getInstance().log(e, LogLevel.WARNING);
+			return null;
+		}
 	}
 	
 	public void encode(){
