@@ -8,10 +8,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.khinenw.chard.ChardServer;
-import org.khinenw.chard.network.packet.Packet;
-import org.khinenw.chard.network.packet.PacketInfo;
-import org.khinenw.chard.network.packet.PingPacket;
-import org.khinenw.chard.network.packet.PongPacket;
+import org.khinenw.chard.network.packet.*;
 import org.khinenw.chard.utils.Logger.LogLevel;
 
 public class Network {
@@ -54,10 +51,18 @@ public class Network {
 	public void registerDefaultPackets(){
 		registerPacket(PacketInfo.PING.ID, PingPacket.class);
 		registerPacket(PacketInfo.PONG.ID, PongPacket.class);
+		registerPacket(PacketInfo.LOGIN_REQUEST.ID, LoginRequestPacket.class);
+		registerPacket(PacketInfo.LOGIN_REPLY.ID, LoginReplyPacket.class);
+		registerPacket(PacketInfo.LOGIN.ID, LoginPacket.class);
+		registerPacket(PacketInfo.LOGOUT.ID, LogoutPacket.class);
+		registerPacket(PacketInfo.REGISTRATION_REQUEST.ID, RegistrationRequestPacket.class);
+		registerPacket(PacketInfo.REGISTRATION_REPLY.ID, RegistrationReplyPacket.class);
+		registerPacket(PacketInfo.REGISTRATION_AUTH.ID, RegistrationAuthPacket.class);
+		registerPacket(PacketInfo.REGISTRATION.ID, RegistrationPacket.class);
 	}
 	
 	public void createSession(SocketChannel socket){
-		System.out.println("OPEN SESSION REQUEST FROM " + socket.socket().getInetAddress().getCanonicalHostName());
+		server.log("OPEN SESSION REQUEST FROM " + socket.socket().getInetAddress().getHostAddress(), LogLevel.INFO);
 		sessions.put(socket.socket().getInetAddress() + ":" + socket.socket().getPort(), new Session(socket));
 	}
 	

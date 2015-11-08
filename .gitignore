@@ -1,4 +1,4 @@
 .settings/
 bin/
-*.conf
+server.conf
 *.plconf

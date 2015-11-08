@@ -1,10 +1,12 @@
 package org.khinenw.chard.network.packet;
 
-public class RegistrationRequestPacket extends Packet{
+public class LogoutPacket extends Packet{
 
+	public String reason;
+	
 	@Override
 	public int getID(){
-		return PacketInfo.REGISTRATION_REQUEST.ID;
+		return PacketInfo.LOGOUT.ID;
 	}
 
 	@Override
@@ -14,7 +16,7 @@ public class RegistrationRequestPacket extends Packet{
 
 	@Override
 	public void _decode(){
-		
+		reason = readString();
 	}
 
 }

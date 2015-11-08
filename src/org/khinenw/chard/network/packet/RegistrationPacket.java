@@ -1,25 +1,26 @@
 package org.khinenw.chard.network.packet;
 
-public class LoginPacket extends Packet{
+public class RegistrationPacket extends Packet{
 
-	public String name;
+	public String id;
 	public String pw;
-	public String version;
-
+	public String email;
+	
 	@Override
 	public int getID(){
-		return PacketInfo.LOGIN.ID;
+		return PacketInfo.REGISTRATION.ID;
 	}
-	
+
 	@Override
 	public void _encode(){
 		throw new UnsupportedOperationException();
 	}
-	
+
 	@Override
 	public void _decode(){
-		this.name = readString();
+		this.id = readString();
 		this.pw = readString();
-		this.version = readString();
+		this.email = readString();
 	}
+
 }

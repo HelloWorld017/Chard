@@ -1,33 +1,34 @@
 package org.khinenw.chard.network;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.security.KeyPair;
 import java.security.PrivateKey;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.TreeMap;
 
+import org.apache.commons.validator.routines.EmailValidator;
 import org.khinenw.chard.ChardPlayer;
 import org.khinenw.chard.ChardServer;
 import org.khinenw.chard.event.PacketIncomeEvent;
-import org.khinenw.chard.network.packet.LoginPacket;
-import org.khinenw.chard.network.packet.LoginReplyPacket;
-import org.khinenw.chard.network.packet.LoginRequestPacket;
-import org.khinenw.chard.network.packet.Packet;
-import org.khinenw.chard.network.packet.PingPacket;
-import org.khinenw.chard.network.packet.PongPacket;
-import org.khinenw.chard.network.packet.ResultStatusPacket;
-import org.khinenw.chard.network.packet.SplitablePacket;
+import org.khinenw.chard.network.packet.*;
+import org.khinenw.chard.utils.AuthTokenGenerator;
+import org.khinenw.chard.utils.Configuration;
 import org.khinenw.chard.utils.EncryptionHelper;
 import org.khinenw.chard.utils.Logger.LogLevel;
+import org.khinenw.chard.utils.ReadOnlyConfiguration;
 
 public class Session {
 	private SocketChannel socket;
 	private TreeMap<Short, SplitablePacket> splitQueue;
 	private PrivateKey loginPrivKey;
+	private ChardPlayer player;
 	
 	public static final short MAX_SPLIT_SIZE = 128;
 	public static final int MAX_SPLIT_QUEUE = 256;
@@ -55,7 +56,7 @@ public class Session {
 	}
 	
 	public void receivePacket(ByteBuffer packet){
-		String host = getAddress().getCanonicalHostName();
+		String host = getAddress().getHostAddress();
 		ChardServer.getInstance().log("PACKET RECEIVED FROM " + host, LogLevel.DEBUG);
 		
 		if(ChardServer.getNetwork().isBlock(host)) return;
@@ -111,11 +112,13 @@ public class Session {
 				LoginReplyPacket reply = new LoginReplyPacket();
 				reply.publicKey = pair.getPublic();
 				reply.encode();
+				this.sendPacket(reply);
 				
 				pair = null;
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.WARNING);
 				sendResult(ResultStatusPacket.FAIL_SERVER_FAULT);
+				return;
 			}
 		}else if(pk instanceof LoginPacket){
 			String name = ((LoginPacket) pk).name;
@@ -125,8 +128,11 @@ public class Session {
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.WARNING);
 				sendResult(ResultStatusPacket.FAIL_SERVER_FAULT);
+				this.loginPrivKey = null;
 				return;
 			}
+			
+			this.loginPrivKey = null;
 			
 			ChardPlayer player = new ChardPlayer(name, this);
 			if(!player.authenticate(pw)){
@@ -141,7 +147,85 @@ public class Session {
 			}
 			
 			ChardServer.getInstance().registerOnlinePlayer(player);
+			this.player = player;
+			pw = null;
+			sendResult(ResultStatusPacket.SUCCESS);
+			
+		}else if(pk instanceof LogoutPacket){
+			if(this.player == null){
+				sendResult(ResultStatusPacket.FAIL_WRONG_DATA);
+				return;
+			}
+			
+			this.player.kick("reason.player-logout");
+			this.player = null;
+			sendResult(ResultStatusPacket.SUCCESS);
+		}else if(pk instanceof RegistrationRequestPacket){
+			try{
+				KeyPair pair = EncryptionHelper.generateKey();
+				this.loginPrivKey = pair.getPrivate();
+				
+				RegistrationReplyPacket reply = new RegistrationReplyPacket();
+				reply.publicKey = pair.getPublic();
+				reply.encode();
+				this.sendPacket(reply);
+				
+				pair = null;
+			}catch(Exception e){
+				ChardServer.getInstance().log(e, LogLevel.WARNING);
+				sendResult(ResultStatusPacket.FAIL_SERVER_FAULT);
+				return;
+			}
+			
+		}else if(pk instanceof RegistrationPacket){
+			String pw;
+			try{
+				pw = EncryptionHelper.hash(EncryptionHelper.decrypt(((RegistrationPacket) pk).pw, this.loginPrivKey));
+			}catch(Exception e){
+				ChardServer.getInstance().log(e, LogLevel.WARNING);
+				sendResult(ResultStatusPacket.FAIL_SERVER_FAULT);
+				this.loginPrivKey = null;
+				return;
+			}
+			
+			this.loginPrivKey = null;
+			
+			String id = ((RegistrationPacket) pk).id;
+			String email = ((RegistrationPacket) pk).email;
+			
+			if(!EmailValidator.getInstance(false).isValid(email)){
+				sendResult(ResultStatusPacket.FAIL_WRONG_DATA);
+				return;
+			}
+			
+			if(!id.matches("[0-9a-zA-Z\\-_.]{6,16}")){
+				sendResult(ResultStatusPacket.FAIL_WRONG_DATA);
+				return;
+			}
+			
+			if(new File(id + ".plconf").exists()){
+				sendResult(ResultStatusPacket.FAIL_WRONG_DATA, "reason.player-already-exists");
+				return;
+			}
+			
+			Configuration conf = new Configuration(id + ".plconf", "default.plconf");
+			conf.set("id", id);
+			conf.set("pw", pw);
+			conf.set("email", email);
+			conf.set("is-authenticated", "no");
+			conf.set("authenticate-token", AuthTokenGenerator.generate(5));
+			conf.save();
+			
+			Configuration emailConf = new ReadOnlyConfiguration("auth.conf");
+			emailConf.set("auth-fill-time", new SimpleDateFormat("yyyy/MM/dd HH:mm").format(new Date()));
+			emailConf.set("auth-fill-id", id);
+			emailConf.set("auth-fill-number", conf.get("authenticate-token"));
+			
+			this.player = new ChardPlayer(id, this);
+			this.player.sendMail(emailConf.get("auth-title"), new File("resources/ChardNetAuth.html"), emailConf);
+			sendResult(ResultStatusPacket.SUCCESS);
 		}
+		
 	}
 
 	public void handleSplit(SplitablePacket pk){
@@ -212,6 +296,8 @@ public class Session {
 	public void close(){
 		if(socket.isOpen()){
 			try{
+				player.kick("reason.session-close");
+				ChardServer.getInstance().log(this.getAddress().getHostAddress() + " DISCONNECTED", LogLevel.INFO);
 				socket.close();
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.WARNING);

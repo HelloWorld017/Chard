@@ -12,9 +12,9 @@ import java.util.Map;
 import org.khinenw.chard.ChardServer;
 import org.khinenw.chard.utils.Logger.LogLevel;
 
-public class Configuration {
-	private Map<String, String> configuration;
-	private File file;
+public class Configuration{
+	protected Map<String, String> configuration;
+	protected File file;
 	
 	public Configuration(String filePath, String defaultPath){
 		try{
@@ -69,6 +69,10 @@ public class Configuration {
 	
 	public int getInt(String key){
 		return Integer.parseInt(configuration.get(key));
+	}
+	
+	public Map<String, String> getAll(){
+		return this.configuration;
 	}
 	
 	public void set(String key, String value){
