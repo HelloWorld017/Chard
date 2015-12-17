@@ -28,6 +28,7 @@ public class Session {
 	private SocketChannel socket;
 	private TreeMap<Short, SplitablePacket> splitQueue;
 	private PrivateKey loginPrivKey;
+	private PrivateKey registerPrivKey;
 	private ChardPlayer player;
 	
 	public static final short MAX_SPLIT_SIZE = 128;
@@ -61,7 +62,7 @@ public class Session {
 		
 		if(ChardServer.getNetwork().isBlock(host)) return;
 		
-		byte[] buffer = packet.array();
+		byte[] buffer = packet.array().clone();
 		Packet pk = ChardServer.getNetwork().getPacket(buffer[0]);
 		if(pk == null){
 			ChardServer.getInstance().log("UNKNOWN PACKET FROM " + host, LogLevel.DEBUG);
@@ -125,6 +126,9 @@ public class Session {
 			String pw;
 			try{
 				pw = EncryptionHelper.hash(EncryptionHelper.decrypt(((LoginPacket) pk).pw, this.loginPrivKey));
+			}catch(NullPointerException e){
+				sendResult(ResultStatusPacket.FAIL_WRONG_DATA);
+				return;
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.WARNING);
 				sendResult(ResultStatusPacket.FAIL_SERVER_FAULT);
@@ -163,7 +167,7 @@ public class Session {
 		}else if(pk instanceof RegistrationRequestPacket){
 			try{
 				KeyPair pair = EncryptionHelper.generateKey();
-				this.loginPrivKey = pair.getPrivate();
+				this.registerPrivKey = pair.getPrivate();
 				
 				RegistrationReplyPacket reply = new RegistrationReplyPacket();
 				reply.publicKey = pair.getPublic();
@@ -180,15 +184,18 @@ public class Session {
 		}else if(pk instanceof RegistrationPacket){
 			String pw;
 			try{
-				pw = EncryptionHelper.hash(EncryptionHelper.decrypt(((RegistrationPacket) pk).pw, this.loginPrivKey));
+				pw = EncryptionHelper.hash(EncryptionHelper.decrypt(((RegistrationPacket) pk).pw, this.registerPrivKey));
+			}catch(NullPointerException e){
+				sendResult(ResultStatusPacket.FAIL_WRONG_DATA);
+				return;
 			}catch(Exception e){
 				ChardServer.getInstance().log(e, LogLevel.WARNING);
 				sendResult(ResultStatusPacket.FAIL_SERVER_FAULT);
-				this.loginPrivKey = null;
+				this.registerPrivKey = null;
 				return;
 			}
 			
-			this.loginPrivKey = null;
+			this.registerPrivKey = null;
 			
 			String id = ((RegistrationPacket) pk).id;
 			String email = ((RegistrationPacket) pk).email;
@@ -296,7 +303,7 @@ public class Session {
 	public void close(){
 		if(socket.isOpen()){
 			try{
-				player.kick("reason.session-close");
+				if(player != null) player.kick("reason.session-close");
 				ChardServer.getInstance().log(this.getAddress().getHostAddress() + " DISCONNECTED", LogLevel.INFO);
 				socket.close();
 			}catch(Exception e){

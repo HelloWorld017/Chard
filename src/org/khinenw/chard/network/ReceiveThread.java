@@ -1,6 +1,7 @@
 package org.khinenw.chard.network;
 
 import java.nio.ByteBuffer;
+import java.util.LinkedList;
 
 import org.khinenw.chard.ChardServer;
 import org.khinenw.chard.utils.Logger.LogLevel;
@@ -20,6 +21,7 @@ public class ReceiveThread extends Thread{
 	
 	public void run(){
 		readBuffer = ByteBuffer.allocate(65535);
+		LinkedList<String> closeList = new LinkedList<>();
 		while(!isCancelled){
 			ChardServer.getNetwork().sessions.forEach((k, v) -> {
 				try{
@@ -32,9 +34,14 @@ public class ReceiveThread extends Thread{
 						}
 					}
 				}catch(Exception e){
-					ChardServer.getNetwork().closeSession(k);
+					closeList.add(k);
 				}
 			});
+			if(!closeList.isEmpty()){
+				closeList.forEach((v) -> ChardServer.getNetwork().closeSession(v));
+				closeList.clear();
+			}
+			
 			try{
 				Thread.sleep(50);
 			}catch(InterruptedException e){

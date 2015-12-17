@@ -2,6 +2,7 @@ package org.khinenw.chard.network.packet;
 
 public class RegistrationAuthPacket extends Packet{
 
+	public String playerId;
 	public String authToken;
 	
 	@Override
@@ -16,6 +17,7 @@ public class RegistrationAuthPacket extends Packet{
 
 	@Override
 	public void _decode(){
+		playerId = readString();
 		authToken = readString();
 	}
 

@@ -29,7 +29,7 @@ public class Network {
 	public static final int BLOCK_TIME = 600;
 	
 	public Network(ChardServer server, int port){
-		ChardServer.getInstance().log("CHARD-NET STARTED. RECEIVING PACKET FROM " + port, LogLevel.INFO);
+		ChardServer.getInstance().log("CHARD-NET STARTED. RECEIVING PACKETS FROM " + port, LogLevel.INFO);
 		this.server = server;
 		registerDefaultPackets();
 		try{
